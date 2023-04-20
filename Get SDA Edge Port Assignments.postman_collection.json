@@ -1,0 +1,485 @@
+{
+	"info": {
+		"_postman_id": "488e495a-ecc3-46b1-b1a0-4b60f15460b7",
+		"name": "Get SDA Edge Port Assignments",
+		"description": "This API collection is built to gather static port assignments of access ports on SDA Edge.\n\nCollection workflow:\n\n1. Get list of all access interfaces of Fabric Edge. Routed interfaces are excluded from the list.\n2. Iterate through this list and save configuration in two separate lists:\n    1. user_interface_configuration – for user ports\n    2. ap_interface_configuration – for ap ports\n\nYou have to run the collection instead of separate requests in order to allow Postman to iterate through list of interfaces.\n\nINITIAL SETUP:\n\n1. Set mandatory collection variables.(Select \"Get SDA Edge Port Assignments\" collection and open Variables tab. Set proper values in both INITIAL and CURRENT VALUE fields):\n    1. \"dnac_ip\" - Specify DNAC IP or FQDN\n    2. \"edge_ip_address\" - Specify Loopback0 IP of target Fabric Edge\n    3. \"user_interfaces_configuration\" – set value: \\[\\]\n    4. \"ap_interfaces_configuration\" – set value: \\[\\]\n    5. Don't forget to Save changes\n2. Specify DNAC credentials in DNAC/Authentication request. Authorization field.\n    1. Don't forget to Save changes\n\n\"interfaces_start_index\" - this variable points to the first interface of the Edge. It is required for \"Get all interfaces\" request.\n\n\"interfaces_records_to_return\" - this variable define maximum number of interfaces to iterate through. It is required for \"Get all interfaces\" request. It is set to maximum possible value, meaning that this request can iterate over 500 interfaces maximum.\n\n---\n\nBuilt for:\n\nDNAC 2.3.3.6 (API v1.0)\n\n_API versions can be changed via collection variables_",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "23835599"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// save access token into collection variable",
+							"var jsonData = JSON.parse(responseBody);",
+							"pm.collectionVariables.set(\"token\", jsonData.Token);"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "basic",
+					"basic": [
+						{
+							"key": "password",
+							"value": "",
+							"type": "string"
+						},
+						{
+							"key": "username",
+							"value": "admin",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "https://{{dnac_ip}}/dna/system/api/{{dnac_api_version}}/auth/token",
+					"protocol": "https",
+					"host": [
+						"{{dnac_ip}}"
+					],
+					"path": [
+						"dna",
+						"system",
+						"api",
+						"{{dnac_api_version}}",
+						"auth",
+						"token"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Device ID by IP",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// save edge id into collection variable",
+							"var jsonData = JSON.parse(responseBody);",
+							"pm.collectionVariables.set(\"device_id\", jsonData.response.id);"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-Auth-Token",
+						"value": "{{token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "https://{{dnac_ip}}/dna/intent/api/{{dnac_api_version}}/network-device/ip-address/{{edge_ip_address}}",
+					"protocol": "https",
+					"host": [
+						"{{dnac_ip}}"
+					],
+					"path": [
+						"dna",
+						"intent",
+						"api",
+						"{{dnac_api_version}}",
+						"network-device",
+						"ip-address",
+						"{{edge_ip_address}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get all interfaces",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var edge_interfaces_str;",
+							"const edge_interfaces = [];",
+							"",
+							"",
+							"// This function returns either port name for access interface or null",
+							"function selectAccessPorts(dnac_data) {",
+							"  // Exclude routed ports",
+							"  if (dnac_data[\"portMode\"] === \"routed\") {",
+							"      return null;",
+							"  }",
+							"  // Exclude ports that starts with App..",
+							"  if (dnac_data[\"portName\"].startsWith(\"App\") === true) {",
+							"      return null;",
+							"  }",
+							"  return dnac_data[\"portName\"]",
+							"}",
+							"",
+							"",
+							"",
+							"// Parse DNAC response into json format.",
+							"var jsonData = JSON.parse(responseBody);",
+							"",
+							"// Loop through all interfaces and save port names into list.",
+							"for (var physical_interface, _pj_c = 0, _pj_a = jsonData.response, _pj_b = _pj_a.length; _pj_c < _pj_b; _pj_c += 1) {",
+							"  physical_interface = _pj_a[_pj_c];",
+							"  port_name = selectAccessPorts(physical_interface);",
+							"  if (port_name !== null) {",
+							"    edge_interfaces.push(port_name);",
+							"  }",
+							"}",
+							"",
+							"// Save list of physical interface names into collection variable",
+							"edge_interfaces_str = JSON.stringify(edge_interfaces);",
+							"pm.collectionVariables.set(\"edge_interfaces\", edge_interfaces_str);",
+							"",
+							"// const interfaces_configuration = [];",
+							"// var interfaces_configuration_str;",
+							"// interfaces_configuration_str = JSON.stringify(interfaces_configuration);",
+							"// pm.collectionVariables.set(\"interfaces_configuration\", interfaces_configuration_str);",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-Auth-Token",
+						"value": "{{token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "https://{{dnac_ip}}/dna/intent/api/{{dnac_api_version}}/interface/network-device/{{device_id}}/{{interfaces_start_index}}/{{interfaces_records_to_return}}",
+					"protocol": "https",
+					"host": [
+						"{{dnac_ip}}"
+					],
+					"path": [
+						"dna",
+						"intent",
+						"api",
+						"{{dnac_api_version}}",
+						"interface",
+						"network-device",
+						"{{device_id}}",
+						"{{interfaces_start_index}}",
+						"{{interfaces_records_to_return}}"
+					],
+					"query": [
+						{
+							"key": "",
+							"value": null,
+							"disabled": true
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get configuration of user interface",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"",
+							"// Iterate through array of interfaces and send same request for each particular interface. Example taken from Postman docs",
+							"",
+							"let interfaces_str = pm.collectionVariables.get(\"edge_interfaces\");",
+							"let interfaces = JSON.parse(interfaces_str);",
+							"",
+							"let currentInterface = interfaces.shift();",
+							"",
+							"console.log(currentInterface)",
+							"",
+							"pm.collectionVariables.set(\"interface_name\", currentInterface);",
+							"pm.collectionVariables.set(\"edge_interfaces\", JSON.stringify(interfaces));"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Interface configuration will be saved here",
+							"let interfaces_configuration_str = pm.collectionVariables.get(\"user_interfaces_configuration\");",
+							"let interfaces_configuration = JSON.parse(interfaces_configuration_str);",
+							"",
+							"",
+							"// Parse DNAC response into json format.",
+							"var jsonData = JSON.parse(responseBody);",
+							"",
+							"// This function removes unnecessary elements from interface dictionary",
+							"function cleanInterfaceConfig(dnac_data) {",
+							"  delete dnac_data[\"status\"];",
+							"  delete dnac_data[\"description\"];",
+							"  delete dnac_data[\"executionId\"];",
+							"}",
+							"",
+							"",
+							"if (jsonData[\"status\"] !== \"failed\"){",
+							"  cleanInterfaceConfig(jsonData);",
+							"  interfaces_configuration.push(jsonData);",
+							"  pm.collectionVariables.set(\"user_interfaces_configuration\", JSON.stringify(interfaces_configuration));",
+							"}",
+							"",
+							"// Iterate through array of interfaces and send same request for each particular interface. Example taken from Postman docs",
+							"const interfaces_str = pm.collectionVariables.get(\"edge_interfaces\");",
+							"",
+							"const interfaces = JSON.parse(interfaces_str);",
+							"if (interfaces && interfaces.length > 0 && JSON.parse(responseBody)[\"description\"] === \"This interface is not assigned to user device\"){",
+							"    postman.setNextRequest(\"Get configuration of ap interface\");",
+							"} else if (interfaces && interfaces.length > 0){",
+							"    postman.setNextRequest(\"Get configuration of user interface\");",
+							"} else {",
+							"    postman.setNextRequest(null);",
+							"}",
+							"",
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-Auth-Token",
+						"value": "{{token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "https://{{dnac_ip}}/dna/intent/api/{{dnac_api_version}}/business/sda/hostonboarding/user-device?deviceManagementIpAddress={{edge_ip_address}}&interfaceName={{interface_name}}",
+					"protocol": "https",
+					"host": [
+						"{{dnac_ip}}"
+					],
+					"path": [
+						"dna",
+						"intent",
+						"api",
+						"{{dnac_api_version}}",
+						"business",
+						"sda",
+						"hostonboarding",
+						"user-device"
+					],
+					"query": [
+						{
+							"key": "deviceManagementIpAddress",
+							"value": "{{edge_ip_address}}"
+						},
+						{
+							"key": "interfaceName",
+							"value": "{{interface_name}}"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get configuration of ap interface",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Interface configuration will be saved here",
+							"let interfaces_configuration_str = pm.collectionVariables.get(\"ap_interfaces_configuration\");",
+							"let interfaces_configuration = JSON.parse(interfaces_configuration_str);",
+							"",
+							"",
+							"// Parse DNAC response into json format.",
+							"var jsonData = JSON.parse(responseBody);",
+							"",
+							"// This function removes unnecessary elements from interface dictionary",
+							"function cleanInterfaceConfig(dnac_data) {",
+							"  delete dnac_data[\"status\"];",
+							"  delete dnac_data[\"description\"];",
+							"  delete dnac_data[\"executionId\"];",
+							"}",
+							"",
+							"",
+							"if (jsonData[\"status\"] !== \"failed\"){",
+							"  cleanInterfaceConfig(jsonData);",
+							"  interfaces_configuration.push(jsonData);",
+							"  pm.collectionVariables.set(\"ap_interfaces_configuration\", JSON.stringify(interfaces_configuration));",
+							"}",
+							"",
+							"// Iterate through array of interfaces and send same request for each particular interface. Example taken from Postman docs",
+							"const interfaces_str = pm.collectionVariables.get(\"edge_interfaces\");",
+							"",
+							"const interfaces = JSON.parse(interfaces_str);",
+							"console.log(interfaces);",
+							"if (interfaces && interfaces.length > 0){",
+							"    postman.setNextRequest(\"Get configuration of user interface\");",
+							"} else {",
+							"    postman.setNextRequest(null);",
+							"}",
+							"",
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-Auth-Token",
+						"value": "{{token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "https://{{dnac_ip}}/dna/intent/api/{{dnac_api_version}}/business/sda/hostonboarding/access-point?deviceManagementIpAddress={{edge_ip_address}}&interfaceName={{interface_name}}",
+					"protocol": "https",
+					"host": [
+						"{{dnac_ip}}"
+					],
+					"path": [
+						"dna",
+						"intent",
+						"api",
+						"{{dnac_api_version}}",
+						"business",
+						"sda",
+						"hostonboarding",
+						"access-point"
+					],
+					"query": [
+						{
+							"key": "deviceManagementIpAddress",
+							"value": "{{edge_ip_address}}"
+						},
+						{
+							"key": "interfaceName",
+							"value": "{{interface_name}}"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "dnac_api_version",
+			"value": "v1"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "site_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "device_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "edge_interfaces",
+			"value": "[]",
+			"type": "string"
+		},
+		{
+			"key": "interface_name",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_interfaces_configuration",
+			"value": "[]",
+			"type": "string"
+		},
+		{
+			"key": "ap_interfaces_configuration",
+			"value": "[]",
+			"type": "string"
+		},
+		{
+			"key": "dnac_ip",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "edge_ip_address",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "interfaces_start_index",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "interfaces_records_to_return",
+			"value": "500",
+			"type": "string"
+		}
+	]
+}
